@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Skoolie Solar Planner</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- BLUE THEME BASE --- */
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            min-height: 100vh;
+            background-attachment: fixed;
+            background-size: cover;
+        }
+        .container { max-width: 600px; margin: 0 auto; padding-bottom: 50px; }
+        
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { 
+            margin: 0; font-weight: 300; letter-spacing: 1px; text-transform: uppercase; font-size: 1.2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 1.2rem;
+        }
+
+        /* Cards */
+        .card {
+            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        /* Modal */
+        .modal {
+            display: none; 
+            position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.85); 
+            justify-content: center; align-items: center;
+            overflow-y: auto;
+        }
+        .modal-content {
+            background: #2a2a40;
+            padding: 25px; border-radius: 16px; width: 85%; max-width: 400px;
+            border: 1px solid #444;
+            margin: 20px auto;
+        }
+        .close-btn { float: right; font-size: 24px; cursor: pointer; color: #aaa; }
+        .section-title {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #00c6ff;
+            margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;
+        }
+        
+        /* Inputs */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 12px; color: #ccc; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;}
+        input, select { 
+            background: rgba(0, 0, 0, 0.3); border: 1px solid #555; color: white; 
+            padding: 12px; border-radius: 8px; width: 100%; font-size: 16px; box-sizing: border-box;
+        }
+        
+        /* Battery Calc */
+        .calc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        
+        .action-btn {
+            width: 100%; padding: 15px; 
+            background: linear-gradient(45deg, #00c6ff, #0072ff);
+            color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,114,255,0.4);
+            margin-top: 15px;
+        }
+        .action-btn:disabled { opacity: 0.6; filter: grayscale(80%); cursor: wait;}
+
+        /* Main Stats Layout */
+        .main-stat-box { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px;
+            padding: 0 5px;
+        }
+        .stat-left { text-align: left; }
+        .stat-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+        .big-kwh { font-size: 3.5em; font-weight: 800; color: #fff; line-height: 1; text-shadow: 0 0 30px rgba(0, 198, 255, 0.4); }
+        .sub-stat { font-size: 0.9em; color: #aab; margin-top: 5px; font-weight: 400; }
+        
+        .stat-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 25px;
+            font-size: 0.85em; font-weight: 600;
+            backdrop-filter: blur(5px);
+            width: fit-content;
+        }
+        .batt-badge { background: rgba(0, 198, 255, 0.15); border: 1px solid rgba(0, 198, 255, 0.4); color: #00c6ff; }
+        .sun-badge { background: rgba(255, 209, 102, 0.15); border: 1px solid rgba(255, 209, 102, 0.4); color: #ffd166; }
+
+        /* Chart */
+        canvas { width: 100%; }
+        .chart-container { position: relative; height: 220px; width: 100%; }
+        .sun-strip { 
+            display: flex; justify-content: space-between; font-size: 13px; color: #ccc; 
+            margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); 
+        }
+
+        /* --- GRID LIST --- */
+        .forecast-header {
+            display: grid;
+            grid-template-columns: 1.4fr 1.2fr 0.8fr 1fr 1fr; 
+            padding: 0 5px 8px 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 9px; text-transform: uppercase; color: #889; letter-spacing: 0.5px;
+            text-align: center;
+        }
+        .forecast-header span:first-child { text-align: left; padding-left:5px; }
+
+        .forecast-list { 
+            list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; 
+            scrollbar-width: thin; scrollbar-color: rgba(0,198,255,0.3) transparent;
+        }
+        
+        .forecast-item { 
+            display: grid;
+            grid-template-columns: 1.4fr 1.2fr 0.8fr 1fr 1fr; 
+            align-items: center; 
+            padding: 12px 5px; 
+            border-bottom: 1px solid rgba(255,255,255,0.05); 
+            text-align: center;
+            cursor: pointer; /* Makes it look clickable */
+            transition: background 0.2s;
+        }
+        
+        /* Highlight style for Selected Row */
+        .selected-row {
+            background: rgba(255, 255, 255, 0.15);
+            border-left: 3px solid #00c6ff;
+            padding-left: 2px; /* adjust for border */
+        }
+        
+        .f-col-date { display: flex; align-items: center; gap: 8px; text-align: left; padding-left: 5px; }
+        .f-date-group { display: flex; flex-direction: column; }
+        .f-day { font-weight: bold; color: #fff; font-size: 13px; }
+        .f-date { font-size: 10px; color: #889; }
+        .f-icon { font-size: 1.3em; }
+        .f-temp { color: #ccc; font-size: 11px; white-space: nowrap;}
+        .f-kwh { color: #fff; font-weight: 700; font-size: 13px; }
+        .f-sun { color: #ffd166; font-weight: 600; font-size: 12px; }
+        .f-batt { color: #00c6ff; font-weight: 600; font-size: 12px; }
+
+        #location-display { text-align:center; color: #00c6ff; font-weight:600; font-size: 0.9em; margin-top:5px; }
+        #status { text-align: center; color: #889; font-size: 0.8em; margin-top: 10px; font-style: italic;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>☀️ Skoolie Solar</h2>
+        <button class="settings-btn" onclick="openSettings()">⚙️</button>
+    </div>
+
+    <div class="card" style="text-align: center; padding: 15px;">
+        <button id="updateBtn" class="action-btn" onclick="handleUpdate()">📍 Update Forecast</button>
+        <div id="location-display">Ready to update</div>
+        <p id="status"></p>
+    </div>
+
+    <div id="dashboard" style="display:none;">
+        
+        <div class="card">
+            <div class="main-stat-box">
+                <div class="stat-left">
+                    <div class="big-kwh" id="dayTotal">--</div>
+                    <div class="sub-stat" id="dayLabel">kWh Today</div>
+                </div>
+                <div class="stat-right">
+                     <div id="sunHoursStat" class="stat-badge sun-badge">-- Sun Hrs</div>
+                     <div id="batteryStat" class="stat-badge batt-badge">--% Bat</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="hourlyChart"></canvas>
+            </div>
+            
+            <div class="sun-strip">
+                <span>🌅 <span id="sunrise">--:--</span></span>
+                <span>⏱️ <span id="timezoneDisplay">--</span></span>
+                <span>🌇 <span id="sunset">--:--</span></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="font-size:12px; text-transform:uppercase; color:#889; margin-bottom:15px;">16-Day Forecast (Tap to View)</div>
+            
+            <div class="forecast-header">
+                <span>Date</span>
+                <span>Temp</span>
+                <span>kWh</span>
+                <span>Sun</span>
+                <span>Bat</span>
+            </div>
+
+            <ul class="forecast-list" id="forecastList"></ul>
+            
+            <div style="font-size:12px; text-transform:uppercase; color:#889; margin: 25px 0 10px 0;">Trend Graph</div>
+            <div class="chart-container" style="height: 180px;">
+                <canvas id="dailyChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeSettings()">&times;</span>
+        <h3 style="margin-top:0; padding-bottom:10px;">⚙️ Setup</h3>
+        
+        <div class="section-title">Preferences</div>
+        <div class="input-group">
+            <label>Temperature Unit</label>
+            <select id="tempUnit">
+                <option value="fahrenheit">Fahrenheit (°F)</option>
+                <option value="celsius">Celsius (°C)</option>
+            </select>
+        </div>
+
+        <div class="section-title">Solar System</div>
+        <div class="input-group">
+            <label>Solar Array Size (kW)</label>
+            <input type="number" id="systemSize" value="3.3" step="0.1" inputmode="decimal">
+        </div>
+        <div class="input-group">
+            <label>Efficiency Loss (%)</label>
+            <input type="number" id="efficiency" value="15" step="1" inputmode="numeric">
+        </div>
+
+        <div class="section-title">Battery Calculator</div>
+        <div class="input-group">
+            <label>Enter your Battery Details:</label>
+            <div class="calc-grid">
+                <div>
+                    <input type="number" id="battCount" placeholder="Qty" value="4" oninput="calculateBattery()">
+                    <div style="font-size:9px; text-align:center; color:#888; margin-top:2px;">QTY</div>
+                </div>
+                <div>
+                    <input type="number" id="battVolts" placeholder="Volts" value="12" oninput="calculateBattery()">
+                    <div style="font-size:9px; text-align:center; color:#888; margin-top:2px;">VOLTS</div>
+                </div>
+                <div>
+                    <input type="number" id="battAh" placeholder="Ah" value="300" oninput="calculateBattery()">
+                    <div style="font-size:9px; text-align:center; color:#888; margin-top:2px;">AH</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Total Calculated Capacity (kWh)</label>
+            <input type="number" id="batteryCap" value="14.4" step="0.1" readonly style="background:rgba(0,0,0,0.5); border-color:#00c6ff; color:#00c6ff; font-weight:bold;">
+        </div>
+
+        <div class="section-title">Location</div>
+        <div class="input-group">
+            <label>Manual Location (Optional)</label>
+            <input type="text" id="manualLocation" placeholder="City, State" enterkeyhint="search">
+        </div>
+        <button class="action-btn" onclick="closeSettings(); handleUpdate();">Save & Update</button>
+    </div>
+</div>
+
+<script>
+    let hourlyChartInstance = null;
+    let dailyChartInstance = null;
+    let globalWeatherData = null; // Store data globally so we can access it on click
+
+    window.onload = function() {
+        const saved = JSON.parse(localStorage.getItem('skoolieSolarSettings'));
+        if (saved) {
+            document.getElementById('systemSize').value = saved.systemSize || 3.3;
+            document.getElementById('efficiency').value = saved.efficiency || 15;
+            document.getElementById('batteryCap').value = saved.batteryCap || 14.4;
+            document.getElementById('manualLocation').value = saved.manualLocation || '';
+            document.getElementById('battCount').value = saved.battCount || 4;
+            document.getElementById('battVolts').value = saved.battVolts || 12;
+            document.getElementById('battAh').value = saved.battAh || 300;
+            document.getElementById('tempUnit').value = saved.tempUnit || 'fahrenheit';
+        }
+    };
+
+    function calculateBattery() {
+        const qty = parseFloat(document.getElementById('battCount').value) || 0;
+        const volts = parseFloat(document.getElementById('battVolts').value) || 0;
+        const ah = parseFloat(document.getElementById('battAh').value) || 0;
+        const totalKwh = (qty * volts * ah) / 1000;
+        document.getElementById('batteryCap').value = totalKwh.toFixed(1);
+    }
+
+    function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; }
+    function closeSettings() { 
+        document.getElementById('settingsModal').style.display = 'none'; 
+        saveSettings(); 
+    }
+
+    async function handleUpdate() {
+        const btn = document.getElementById('updateBtn');
+        const status = document.getElementById('status');
+        const manualLoc = document.getElementById('manualLocation').value.trim();
+
+        saveSettings();
+
+        btn.disabled = true;
+        btn.innerText = "Loading...";
+        status.innerText = "Finding location...";
+        document.getElementById('location-display').innerText = "";
+
+        if (manualLoc.length > 0) {
+            await getCoordinatesFromAddress(manualLoc);
+        } else {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => fetchForecast(pos.coords.latitude, pos.coords.longitude, "GPS Location"), 
+                    (err) => {
+                        resetBtn();
+                        status.innerText = "GPS Error: " + err.message;
+                    }, 
+                    {enableHighAccuracy: true, timeout: 10000}
+                );
+            } else {
+                resetBtn();
+                status.innerText = "No GPS support.";
+            }
+        }
+    }
+
+    async function getCoordinatesFromAddress(address) {
+        const status = document.getElementById('status');
+        try {
+            status.innerText = "Looking up city...";
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+            const response = await fetch(url, { headers: { 'User-Agent': 'SkoolieSolarApp/1.0' } });
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                fetchForecast(data[0].lat, data[0].lon, data[0].display_name.split(',')[0]);
+            } else {
+                throw new Error("City not found");
+            }
+        } catch (error) {
+            resetBtn();
+            status.innerText = "Address Error: " + error.message;
+        }
+    }
+
+    async function fetchForecast(lat, lon, locationName) {
+        const status = document.getElementById('status');
+        const tUnit = document.getElementById('tempUnit').value; 
+        
+        status.innerText = "Downloading weather data...";
+        document.getElementById('location-display').innerText = `📍 ${locationName}`;
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=shortwave_radiation&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=16&temperature_unit=${tUnit}`;
+
+        try {
+            const response = await fetch(url);
+            globalWeatherData = await response.json(); // Save to global var
+            
+            if(!globalWeatherData.hourly || !globalWeatherData.daily) throw new Error("Incomplete API data");
+
+            // Initial render
+            processListAndTrend(globalWeatherData);
+            selectDay(0); // Select Today by default
+            
+            status.innerText = `Updated: ${new Date().toLocaleTimeString()}`;
+            document.getElementById('dashboard').style.display = 'block';
+        } catch (error) {
+            console.error(error);
+            status.innerText = "API Error. Check internet.";
+        }
+        resetBtn();
+    }
+
+    function resetBtn() {
+        const btn = document.getElementById('updateBtn');
+        btn.disabled = false;
+        btn.innerText = "📍 Update Forecast";
+    }
+
+    function saveSettings() {
+        const settings = {
+            systemSize: document.getElementById('systemSize').value,
+            efficiency: document.getElementById('efficiency').value,
+            batteryCap: document.getElementById('batteryCap').value,
+            manualLocation: document.getElementById('manualLocation').value,
+            battCount: document.getElementById('battCount').value,
+            battVolts: document.getElementById('battVolts').value,
+            battAh: document.getElementById('battAh').value,
+            tempUnit: document.getElementById('tempUnit').value
+        };
+        localStorage.setItem('skoolieSolarSettings', JSON.stringify(settings));
+    }
+
+    // --- NEW: Select a day to view details ---
+    function selectDay(dayIndex) {
+        if (!globalWeatherData) return;
+
+        const data = globalWeatherData;
+        const sysSize = parseFloat(document.getElementById('systemSize').value) || 3.3;
+        const efficiency = (100 - (parseFloat(document.getElementById('efficiency').value) || 15)) / 100;
+        const battCap = parseFloat(document.getElementById('batteryCap').value) || 1;
+
+        // 1. Highlight List Item
+        const listItems = document.querySelectorAll('.forecast-item');
+        listItems.forEach((li, idx) => {
+            if(idx === dayIndex) li.classList.add('selected-row');
+            else li.classList.remove('selected-row');
+        });
+
+        // 2. Prepare Hourly Data for the selected day
+        const startIndex = dayIndex * 24;
+        const endIndex = startIndex + 24;
+        
+        const hourlyLabels = [];
+        const hourlyData = [];
+        let dayTotalKw = 0;
+
+        // Ensure we don't go out of bounds
+        const safeEnd = Math.min(endIndex, data.hourly.time.length);
+
+        for(let i=startIndex; i<safeEnd; i++) {
+            const dateObj = new Date(data.hourly.time[i]);
+            hourlyLabels.push(dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false}));
+            
+            const rad = data.hourly.shortwave_radiation[i];
+            let kw = (rad / 1000) * sysSize * efficiency;
+            if(kw < 0) kw = 0;
+            
+            hourlyData.push(kw.toFixed(2));
+            dayTotalKw += kw;
+        }
+
+        // 3. Update Main Stats
+        document.getElementById('dayTotal').innerText = dayTotalKw.toFixed(1);
+        
+        // Update label to show which day we are looking at
+        const dayParts = data.daily.time[dayIndex].split('-');
+        const dateObj = new Date(dayParts[0], dayParts[1]-1, dayParts[2]);
+        const dayName = dayIndex === 0 ? "Today" : dateObj.toLocaleDateString('en-US', {weekday: 'long'});
+        document.getElementById('dayLabel').innerText = `kWh Expected ${dayName}`;
+
+        if(sysSize > 0) {
+            const psh = dayTotalKw / sysSize;
+            document.getElementById('sunHoursStat').innerText = `☀️ ${psh.toFixed(1)} Sun Hrs`;
+        }
+        if(battCap > 0) {
+            const percentGain = (dayTotalKw / battCap) * 100;
+            document.getElementById('batteryStat').innerText = `⚡ +${Math.round(percentGain)}% Bat`;
+        }
+
+        // 4. Update Sun Times
+        const rise = new Date(data.daily.sunrise[dayIndex]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
+        const set = new Date(data.daily.sunset[dayIndex]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
+        document.getElementById('sunrise').innerText = rise;
+        document.getElementById('sunset').innerText = set;
+        document.getElementById('timezoneDisplay').innerText = data.timezone_abbreviation;
+
+        renderHourlyChart(hourlyLabels, hourlyData);
+    }
+
+    // --- Process List & Trend Chart (Runs once per update) ---
+    function processListAndTrend(data) {
+        const sysSize = parseFloat(document.getElementById('systemSize').value) || 3.3;
+        const efficiency = (100 - (parseFloat(document.getElementById('efficiency').value) || 15)) / 100;
+        const battCap = parseFloat(document.getElementById('batteryCap').value) || 1; 
+
+        const dailyTotals = [];
+        const dayLabels = [];
+        const listContainer = document.getElementById('forecastList');
+        listContainer.innerHTML = ''; 
+
+        const numDays = data.daily.time.length; 
+
+        for(let d=0; d<numDays; d++) {
+            let dayKwh = 0;
+            for(let h=0; h<24; h++) {
+                const hourIndex = (d * 24) + h;
+                if(hourIndex < data.hourly.shortwave_radiation.length) {
+                    const rad = data.hourly.shortwave_radiation[hourIndex];
+                    let kw = (rad / 1000) * sysSize * efficiency;
+                    if(kw > 0) dayKwh += kw;
+                }
+            }
+            dailyTotals.push(dayKwh.toFixed(1));
+
+            const daySunHrs = (dayKwh / sysSize).toFixed(1);
+            const dayBattPct = Math.round((dayKwh / battCap) * 100);
+
+            const dayParts = data.daily.time[d].split('-'); 
+            const safeDate = new Date(dayParts[0], dayParts[1]-1, dayParts[2]);
+
+            const dayName = safeDate.toLocaleDateString('en-US', {weekday: 'short'});
+            const dayDate = safeDate.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'});
+            
+            dayLabels.push(safeDate.getDate()); 
+
+            const wCode = data.daily.weathercode[d];
+            const icon = getWeatherIcon(wCode);
+            const maxT = Math.round(data.daily.temperature_2m_max[d]);
+            const minT = Math.round(data.daily.temperature_2m_min[d]);
+            
+            const li = document.createElement('li');
+            li.className = 'forecast-item';
+            // Add click event
+            li.onclick = function() { selectDay(d); };
+            
+            li.innerHTML = `
+                <div class="f-col-date">
+                    <div class="f-icon">${icon}</div>
+                    <div class="f-date-group">
+                        <span class="f-day">${d===0 ? 'Today' : dayName}</span>
+                        <span class="f-date">${dayDate}</span>
+                    </div>
+                </div>
+                <div class="f-temp">${minT}°/${maxT}°</div>
+                <div class="f-kwh">${dayKwh.toFixed(1)}</div>
+                <div class="f-sun">☀️${daySunHrs}</div>
+                <div class="f-batt">⚡${dayBattPct}%</div>
+            `;
+            listContainer.appendChild(li);
+        }
+
+        renderDailyChart(dayLabels, dailyTotals);
+    }
+
+    function getWeatherIcon(code) {
+        if(code === 0) return '☀️';
+        if(code <= 3) return '⛅';
+        if(code <= 48) return '🌫️';
+        if(code <= 67) return '🌧️';
+        if(code <= 77) return '❄️';
+        if(code <= 99) return '⛈️';
+        return '❓';
+    }
+
+    function renderHourlyChart(labels, data) {
+        const ctx = document.getElementById('hourlyChart').getContext('2d');
+        if(hourlyChartInstance) hourlyChartInstance.destroy();
+
+        const grad = ctx.createLinearGradient(0,0,0,250);
+        grad.addColorStop(0, 'rgba(0, 198, 255, 0.5)'); 
+        grad.addColorStop(1, 'rgba(0, 198, 255, 0.0)');
+
+        hourlyChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    borderColor: '#00c6ff', 
+                    backgroundColor: grad,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: {display:false}, tooltip: {mode: 'index', intersect: false} },
+                scales: {
+                    x: { 
+                        grid: {color: 'rgba(255,255,255,0.1)'}, 
+                        ticks: {color:'#889', maxTicksLimit: 6, maxRotation: 0} 
+                    },
+                    y: { 
+                        display: true,
+                        grid: {color: 'rgba(255,255,255,0.05)'},
+                        ticks: { color: '#889', font: {size: 10} }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderDailyChart(labels, data) {
+        const ctx = document.getElementById('dailyChart').getContext('2d');
+        if(dailyChartInstance) dailyChartInstance.destroy();
+
+        dailyChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: '#ff5c5c', 
+                    borderRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: {display:false} },
+                scales: {
+                    x: { 
+                        grid: {display:false}, 
+                        ticks: {color:'#ccc', font:{size: 10}} 
+                    },
+                    y: { 
+                        grid: {color: 'rgba(255,255,255,0.1)'}, 
+                        ticks: {color:'#889', maxTicksLimit: 5} 
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

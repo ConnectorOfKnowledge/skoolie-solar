@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Skoolie Solar v2</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  <link rel="icon" href="/favicon.ico" /></head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+    <script>
+      (function () {
+        function renderError(title, details) {
+          var pre = document.createElement('pre');
+          pre.style.whiteSpace = 'pre-wrap';
+          pre.style.padding = '24px';
+          pre.style.margin = '0';
+          pre.style.fontFamily = 'Consolas, Menlo, monospace';
+          pre.style.fontSize = '14px';
+          pre.style.color = '#111827';
+          pre.style.background = '#ffffff';
+          pre.textContent = title + '\n\n' + details;
+          document.body.innerHTML = '';
+          document.body.appendChild(pre);
+        }
+
+        window.addEventListener('error', function (event) {
+          var message = event.message || 'Unknown error';
+          var source = event.filename || 'unknown source';
+          var line = event.lineno || 0;
+          var column = event.colno || 0;
+          renderError('Window Error', message + '\n' + source + ':' + line + ':' + column);
+        });
+
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event.reason;
+          var details = typeof reason === 'string' ? reason : JSON.stringify(reason, null, 2);
+          renderError('Unhandled Promise Rejection', details || 'Unknown rejection');
+        });
+      })();
+    </script>
+  <script src="/_expo/static/js/web/entry-3be5f4895b1ac3032f5a8b9c78818f06.js" defer></script>
+</body>
+</html>

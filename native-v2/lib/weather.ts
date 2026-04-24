@@ -66,21 +66,23 @@ export async function geocodeLocation(query: string): Promise<SavedLocation> {
 }
 
 export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<SavedLocation> {
-  const url = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=en&format=json`;
-  const response = await fetch(url);
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'SkoolieSolar/1.0' } });
+    if (!response.ok) return { latitude, longitude, name: 'Current Location' };
 
-  if (!response.ok) {
+    const data = (await response.json()) as {
+      address?: { city?: string; town?: string; village?: string; state?: string };
+    };
+
+    const place = data.address?.city ?? data.address?.town ?? data.address?.village;
+    const state = data.address?.state;
+    const name = [place, state].filter(Boolean).join(', ') || 'Current Location';
+
+    return { latitude, longitude, name };
+  } catch {
     return { latitude, longitude, name: 'Current Location' };
   }
-
-  const data = (await response.json()) as { results?: GeocodeResult[] };
-  const match = data.results?.[0];
-
-  return {
-    latitude,
-    longitude,
-    name: match ? [match.name, match.admin1, match.country].filter(Boolean).join(', ') : 'Current Location',
-  };
 }
 
 // Use shortwave_radiation as primary; direct + diffuse as cross-check fallback

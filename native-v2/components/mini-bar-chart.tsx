@@ -28,7 +28,7 @@ export function MiniBarChart({ color = theme.colors.accent, data, title }: MiniB
       }}
     >
       <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '700' }}>{title}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 140 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 140 }}>
         {data.map((item) => (
           <View key={item.label} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
             <View

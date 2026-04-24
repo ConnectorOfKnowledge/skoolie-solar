@@ -177,17 +177,6 @@ export default function ForecastScreen() {
         >
           Skoolie Solar v2
         </Text>
-        <Text
-          selectable
-          style={{
-            color: theme.colors.text,
-            fontSize: 28,
-            fontWeight: '800',
-            lineHeight: 34,
-          }}
-        >
-          Forecast planning, native storage, and the foundation for sensor-driven sun tracking.
-        </Text>
         <Text selectable style={{ color: theme.colors.subtleText, fontSize: 15, lineHeight: 22 }}>
           {status}
         </Text>

@@ -72,7 +72,7 @@ export function ForecastSummaryCard({ day, snapshot }: ForecastSummaryCardProps)
           <Text style={{ color: theme.colors.muted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' }}>
             Sunset
           </Text>
-          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '700' }}>{day.sunset}</Text>
+          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '700', textDecorationLine: 'none' }}>{day.sunset}</Text>
         </View>
       </View>
     </View>

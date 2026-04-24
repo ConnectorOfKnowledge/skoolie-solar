@@ -25,6 +25,9 @@ type OpenMeteoResponse = {
   };
   hourly: {
     shortwave_radiation: number[];
+    direct_radiation: number[];
+    diffuse_radiation: number[];
+    direct_normal_irradiance: number[];
     time: string[];
   };
   timezone_abbreviation: string;
@@ -67,11 +70,7 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
   const response = await fetch(url);
 
   if (!response.ok) {
-    return {
-      latitude,
-      longitude,
-      name: 'Current Location',
-    };
+    return { latitude, longitude, name: 'Current Location' };
   }
 
   const data = (await response.json()) as { results?: GeocodeResult[] };
@@ -84,9 +83,16 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
   };
 }
 
-function getEnergyFromRadiation(radiation: number, settings: AppSettings) {
+// Use shortwave_radiation as primary; direct + diffuse as cross-check fallback
+function getIrradianceKw(shortwave: number, direct: number, diffuse: number): number {
+  const primary = shortwave;
+  const fallback = direct + diffuse;
+  return (primary > 0 ? primary : fallback) / 1000;
+}
+
+function getEnergyFromIrradiance(irradianceKw: number, settings: AppSettings): number {
   const efficiency = (100 - settings.efficiencyLossPercent) / 100;
-  return Math.max(0, (radiation / 1000) * settings.solarArrayKw * efficiency);
+  return Math.max(0, irradianceKw * settings.solarArrayKw * efficiency);
 }
 
 function formatDayLabel(date: Date, index: number) {
@@ -95,22 +101,35 @@ function formatDayLabel(date: Date, index: number) {
   return date.toLocaleDateString('en-US', { weekday: 'short' });
 }
 
-export async function fetchForecast(
-  location: SavedLocation,
-  settings: AppSettings,
-): Promise<ForecastSnapshot> {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&hourly=shortwave_radiation&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=16&temperature_unit=${settings.temperatureUnit}`;
+export async function fetchForecast(location: SavedLocation, settings: AppSettings): Promise<ForecastSnapshot> {
+  const hourlyParams = [
+    'shortwave_radiation',
+    'direct_radiation',
+    'diffuse_radiation',
+    'direct_normal_irradiance',
+  ].join(',');
+
+  const dailyParams = [
+    'weathercode',
+    'temperature_2m_max',
+    'temperature_2m_min',
+    'sunrise',
+    'sunset',
+  ].join(',');
+
+  const url =
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${location.latitude}&longitude=${location.longitude}` +
+    `&hourly=${hourlyParams}` +
+    `&daily=${dailyParams}` +
+    `&timezone=auto&forecast_days=16` +
+    `&temperature_unit=${settings.temperatureUnit}`;
 
   const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Forecast download failed (${response.status})`);
-  }
+  if (!response.ok) throw new Error(`Forecast download failed (${response.status})`);
 
   const data = (await response.json()) as OpenMeteoResponse;
-
-  if (!data.daily || !data.hourly) {
-    throw new Error('Incomplete forecast data');
-  }
+  if (!data.daily || !data.hourly) throw new Error('Incomplete forecast data');
 
   const daily: DailyForecast[] = data.daily.time.map((dateString, dayIndex) => {
     const date = new Date(`${dateString}T12:00:00`);
@@ -118,21 +137,22 @@ export async function fetchForecast(
     const hourlyPoints: HourlyForecastPoint[] = [];
     let dayTotal = 0;
 
-    for (let offset = 0; offset < 24; offset += 1) {
+    for (let offset = 0; offset < 24; offset++) {
       const hourIndex = hourlyStart + offset;
       if (hourIndex >= data.hourly.time.length) continue;
 
-      const energyKw = getEnergyFromRadiation(data.hourly.shortwave_radiation[hourIndex], settings);
+      const irradianceKw = getIrradianceKw(
+        data.hourly.shortwave_radiation[hourIndex],
+        data.hourly.direct_radiation[hourIndex],
+        data.hourly.diffuse_radiation[hourIndex],
+      );
+      const energyKw = getEnergyFromIrradiance(irradianceKw, settings);
       dayTotal += energyKw;
 
       const pointDate = new Date(data.hourly.time[hourIndex]);
       hourlyPoints.push({
         energyKw,
-        hourLabel: pointDate.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        }),
+        hourLabel: pointDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
         time: data.hourly.time[hourIndex],
       });
     }
@@ -167,7 +187,14 @@ export async function fetchForecast(
   const hourlyByDay = daily.map((_, dayIndex) => {
     const start = dayIndex * 24;
     return data.hourly.time.slice(start, start + 24).map((time, offset) => ({
-      energyKw: getEnergyFromRadiation(data.hourly.shortwave_radiation[start + offset], settings),
+      energyKw: getEnergyFromIrradiance(
+        getIrradianceKw(
+          data.hourly.shortwave_radiation[start + offset],
+          data.hourly.direct_radiation[start + offset],
+          data.hourly.diffuse_radiation[start + offset],
+        ),
+        settings,
+      ),
       hourLabel: new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
       time,
     }));

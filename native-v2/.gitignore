@@ -13,6 +13,7 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
@@ -36,8 +37,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
+# native config is now tracked (locked 2026-04-26 after lessons 1-3, signing wired)
+# /ios and /android were previously ignored under the Expo prebuild pattern
 /ios
-/android
 .agent-channel-me
 .agent-channel-me.lastline
